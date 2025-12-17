@@ -34,6 +34,26 @@
   color: #e65100;
   font-weight: 700;
 }
+    .btn-check {
+  background: #2e7d32;        /* strong green */
+  color: white;
+  font-size: 1.1rem;
+  font-weight: 800;
+  padding: 14px 22px;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+}
+
+.btn-check:hover {
+  background: #1b5e20;
+}
+
+.btn-secondary {
+  background: #e0e0e0;
+  color: #333;
+  font-weight: 600;
+}
+
 
   </style>
 </head>
@@ -65,9 +85,10 @@
   </div>
 
   <div style="margin-top:10px;">
-    <button onclick="check()">Check</button>
-    <button onclick="resetDefaults()">Reset to Defaults</button>
-    <button onclick="fillExample()">Fill Example</button>
+    <button class="btn-check" onclick="check()">✔ CHECK INVENTORY</button>
+<button class="btn-secondary" onclick="resetDefaults()">Reset to Defaults</button>
+<button class="btn-secondary" onclick="fillExample()">Fill Example</button>
+
   </div>
 </div>
 
