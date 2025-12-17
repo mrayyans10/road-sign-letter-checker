@@ -1,0 +1,217 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Road Sign Inventory Checker</title>
+  <style>
+    body { font-family: system-ui, Arial, sans-serif; padding: 16px; max-width: 980px; margin: 0 auto; }
+    textarea { width: 100%; min-height: 120px; }
+    input[type="number"] { width: 76px; }
+    .grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; }
+    .box { border: 1px solid #ddd; padding: 12px; border-radius: 10px; }
+    .ok { color: #0a7; font-weight: 800; }
+    .bad { color: #c00; font-weight: 800; }
+    pre { background: #f6f6f6; padding: 12px; border-radius: 10px; overflow: auto; }
+    button { padding: 10px 14px; border-radius: 10px; border: 0; cursor: pointer; margin-right: 8px; }
+    h3 { margin-top: 18px; }
+    .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .pill { background:#f3f3f3; padding:6px 10px; border-radius:999px; }
+  </style>
+</head>
+<body>
+
+<h2>Road Sign Inventory Checker</h2>
+
+<div class="box">
+  <label><b>Message text</b>:</label><br/>
+  <textarea id="msg" placeholder="Type/paste your sign message here..."></textarea>
+
+  <div class="row" style="margin-top:10px;">
+    <span class="pill">
+      <label><b>Sides</b> (front+back=2): </label>
+      <input id="sides" type="number" min="1" value="2" />
+    </span>
+
+    <span class="pill">
+      <label><input id="ignoreSpaces" type="checkbox" checked /> Ignore spaces</label>
+    </span>
+
+    <span class="pill">
+      <label><input id="countNumbers" type="checkbox" checked /> Count numbers (0–9)</label>
+    </span>
+
+    <span class="pill">
+      <label><input id="countSpecials" type="checkbox" checked /> Count special characters</label>
+    </span>
+  </div>
+
+  <div style="margin-top:10px;">
+    <button onclick="check()">Check</button>
+    <button onclick="resetDefaults()">Reset to Defaults</button>
+    <button onclick="fillExample()">Fill Example</button>
+  </div>
+</div>
+
+<h3>Result</h3>
+<div class="box">
+  <div id="status"></div>
+  <pre id="report"></pre>
+</div>
+
+
+
+<h3>Inventory (Defaults Preloaded)</h3>
+
+<div class="box">
+  <h4 style="margin:0 0 10px 0;">Letters (A–Z)</h4>
+  <div class="grid" id="lettersGrid"></div>
+</div>
+
+<div class="box" style="margin-top:12px;">
+  <h4 style="margin:0 0 10px 0;">Numbers (0–9)</h4>
+  <div class="grid" id="numbersGrid"></div>
+</div>
+
+<div class="box" style="margin-top:12px;">
+  <h4 style="margin:0 0 10px 0;">Special Characters</h4>
+  <div class="grid" id="specialsGrid"></div>
+</div>
+
+<script>
+// Your provided defaults
+const DEFAULTS = {
+  // Letters
+  A:16,B:10,C:10,D:10,E:12,F:14,G:10,H:10,I:15,J:4,
+  K:8,L:6,M:12,N:12,O:16,P:12,Q:2,R:14,S:14,T:14,
+  U:12,V:8,W:8,X:4,Y:12,Z:0,
+  // Numbers
+  "0":5,"1":5,"2":5,"3":5,"4":5,"5":5,"6":5,"7":5,"8":5,"9":5,
+  // Specials
+  "$":4,"&":2,"!":2,".":2,"%":2,"-":2,"?":2,"@":2,"+":2,"/":2
+};
+
+const lettersGrid = document.getElementById("lettersGrid");
+const numbersGrid = document.getElementById("numbersGrid");
+const specialsGrid = document.getElementById("specialsGrid");
+
+const letterInputs = {};
+const numberInputs = {};
+const specialInputs = {};
+
+function addInput(grid, key, store) {
+  const wrap = document.createElement("div");
+  const safeId = "inv_" + encodeURIComponent(key);
+  wrap.innerHTML = `<label><b>${key}</b></label><br/>
+                    <input type="number" min="0" id="${safeId}" />`;
+  grid.appendChild(wrap);
+  store[key] = wrap.querySelector("input");
+}
+
+// Build letters A–Z
+for (let i = 65; i <= 90; i++) addInput(lettersGrid, String.fromCharCode(i), letterInputs);
+
+// Build numbers 0–9
+for (let i = 0; i <= 9; i++) addInput(numbersGrid, String(i), numberInputs);
+
+// Build specials in a fixed order
+const SPECIAL_KEYS = ["$", "&", "!", ".", "%", "-", "?", "@", "+", "/"];
+SPECIAL_KEYS.forEach(k => addInput(specialsGrid, k, specialInputs));
+
+function resetDefaults() {
+  Object.keys(letterInputs).forEach(k => letterInputs[k].value = DEFAULTS[k] ?? 0);
+  Object.keys(numberInputs).forEach(k => numberInputs[k].value = DEFAULTS[k] ?? 0);
+  Object.keys(specialInputs).forEach(k => specialInputs[k].value = DEFAULTS[k] ?? 0);
+
+  document.getElementById("status").innerHTML = "<span class='ok'>Defaults loaded</span>";
+  document.getElementById("report").textContent = "Enter a message and click Check.";
+}
+
+// Run once on load
+resetDefaults();
+
+function getInventory() {
+  const inv = {};
+  Object.keys(letterInputs).forEach(k => inv[k] = Number(letterInputs[k].value || 0));
+  Object.keys(numberInputs).forEach(k => inv[k] = Number(numberInputs[k].value || 0));
+  Object.keys(specialInputs).forEach(k => inv[k] = Number(specialInputs[k].value || 0));
+  return inv;
+}
+
+function countNeeded(text, sides, ignoreSpaces, countNumbers, countSpecials) {
+  const needed = {};
+  // initialize
+  for (let i=65;i<=90;i++) needed[String.fromCharCode(i)] = 0;
+  for (let i=0;i<=9;i++) needed[String(i)] = 0;
+  SPECIAL_KEYS.forEach(k => needed[k]=0);
+
+  const t = (text || "").toUpperCase();
+  for (const c of t) {
+    if (c >= "A" && c <= "Z") needed[c]++;
+    else if (c >= "0" && c <= "9") { if (countNumbers) needed[c]++; }
+    else if (c === " " && ignoreSpaces) { /* ignore */ }
+    else if (SPECIAL_KEYS.includes(c)) { if (countSpecials) needed[c]++; }
+    else {
+      // ignore any other punctuation by default
+    }
+  }
+
+  // multiply by sides
+  Object.keys(needed).forEach(k => needed[k] *= sides);
+  return needed;
+}
+
+function check() {
+  const msg = document.getElementById("msg").value;
+  const sides = Math.max(1, Number(document.getElementById("sides").value || 2));
+  const ignoreSpaces = document.getElementById("ignoreSpaces").checked;
+  const countNumbers = document.getElementById("countNumbers").checked;
+  const countSpecials = document.getElementById("countSpecials").checked;
+
+  const inv = getInventory();
+  const needed = countNeeded(msg, sides, ignoreSpaces, countNumbers, countSpecials);
+
+  const shortages = [];
+  const extras = [];
+
+  for (const k of Object.keys(needed)) {
+    const want = needed[k] || 0;
+    const have = inv[k] || 0;
+    if (want > have) shortages.push({k, want, have, short: want-have});
+    else if (have > want && want > 0) extras.push({k, want, have, extra: have-want});
+  }
+
+  const status = document.getElementById("status");
+  const report = document.getElementById("report");
+
+  if (shortages.length === 0) {
+    status.innerHTML = `<span class="ok">✅ Sufficient</span> — inventory covers ${sides} side(s).`;
+  } else {
+    status.innerHTML = `<span class="bad">❌ Not sufficient</span> — short on some characters for ${sides} side(s).`;
+  }
+
+  let out = "";
+  out += "NEEDED (after multiplying by sides):\n";
+  const neededNonZero = Object.keys(needed).filter(k => needed[k] > 0);
+  if (neededNonZero.length === 0) out += "(No countable characters found)\n";
+  else neededNonZero.forEach(k => out += `${k}: ${needed[k]}\n`);
+
+  out += "\nSHORTAGES:\n";
+  if (shortages.length === 0) out += "None\n";
+  else shortages.forEach(x => out += `${x.k}: need ${x.want}, have ${x.have} → short ${x.short}\n`);
+
+  report.textContent = out;
+}
+
+function fillExample() {
+  document.getElementById("msg").value = "MOSES & JESUS 2025!";
+  document.getElementById("sides").value = 2;
+  document.getElementById("ignoreSpaces").checked = true;
+  document.getElementById("countNumbers").checked = true;
+  document.getElementById("countSpecials").checked = true;
+  check();
+}
+</script>
+
+</body>
+</html>
