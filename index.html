@@ -53,6 +53,37 @@
   color: #333;
   font-weight: 600;
 }
+.shortages-card{
+  background:#fff1f1;
+  border:2px solid #d32f2f;
+  border-left:10px solid #d32f2f;
+  padding:14px;
+  border-radius:12px;
+  margin-top:12px;
+}
+
+.shortages-title{
+  font-size:1.2rem;
+  font-weight:900;
+  color:#b71c1c;
+  margin-bottom:8px;
+}
+
+.shortages-line{
+  font-size:1.05rem;
+  font-weight:800;
+  padding:6px 0;
+}
+
+.shortages-line strong{
+  font-size:1.15rem;
+}
+
+.shortages-tip{
+  margin-top:10px;
+  font-size:0.95rem;
+  color:#333;
+}
 
 
   </style>
@@ -95,9 +126,18 @@
 <h3>Result</h3>
 <div class="box">
   <div id="status"></div>
-  <div id="reportWrapper" class="shortage-box">
+
+  <div id="shortagesCard" class="shortages-card" style="display:none;">
+    <div class="shortages-title">⚠️ SHORTAGES (LETTERS YOU MUST ADD)</div>
+    <div id="shortagesList"></div>
+    <div class="shortages-tip">
+      Tip: You are missing these letters for <b>front + back</b>. Add the missing letters or shorten the message.
+    </div>
+  </div>
+
   <pre id="report"></pre>
 </div>
+
 
 </div>
 
@@ -231,6 +271,29 @@ function check() {
   } else {
     status.innerHTML = `<span class="bad">❌ Not sufficient</span> — short on some characters for ${sides} side(s).`;
   }
+
+  // --- NEW: Big, readable SHORTAGES card for seniors ---
+const card = document.getElementById("shortagesCard");
+const list = document.getElementById("shortagesList");
+
+if (shortages.length === 0) {
+  card.style.display = "none";
+  list.innerHTML = "";
+} else {
+  card.style.display = "block";
+
+  // Biggest shortage first (so "short 6" appears at top)
+  shortages.sort((a, b) => b.short - a.short);
+
+  list.innerHTML = shortages.map(x => `
+    <div class="shortages-line">
+      LETTER <strong>${x.k}</strong> — NEED <strong>${x.want}</strong>, HAVE <strong>${x.have}</strong>
+      → MISSING <strong>${x.short}</strong>
+    </div>
+  `).join("");
+}
+// --- END NEW ---
+
 
   let out = "";
   out += "NEEDED (after multiplying by sides):\n";
